@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ja">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>テンプレートメール作成ツール</title>
+<style>
+.help-toggle { cursor:pointer;font-size:13px;color:#4a9eff;text-decoration:none;margin-left:12px; }
+.help-toggle:hover { text-decoration:underline; }
+#help { display:none;background:#e3f2fd;border:1px solid #90caf9;border-radius:8px;padding:16px;margin-bottom:16px;font-size:13px;line-height:1.7; }
+#help dt { font-weight:bold;margin-top:10px;color:#1565c0; }
+#help dt:first-child { margin-top:0; }
+#help dd { margin-left:16px;color:#333; }
+#help code { background:#fff;padding:1px 5px;border-radius:3px;font-size:12px;border:1px solid #ddd; }
+#help .tag { display:inline-block;background:#1565c0;color:#fff;padding:0 6px;border-radius:3px;font-size:11px;margin-right:4px; }
+* { box-sizing: border-box; margin: 0; }
+body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+h1 { font-size: 1.4em; margin-bottom: 16px; }
+.container { display: flex; gap: 16px; max-width: 1400px; }
+.left { flex: 1; min-width: 0; }
+.right { flex: 1; min-width: 0; }
+section { background: #fff; border-radius: 8px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+section h2 { font-size: 1em; margin-bottom: 8px; color: #333; }
+textarea, .preview { width: 100%; min-height: 300px; padding: 10px; font-size: 14px; line-height: 1.6; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; resize: vertical; }
+textarea:focus { outline: none; border-color: #4a9eff; }
+.preview { background: #fafafa; white-space: pre-wrap; overflow-y: auto; }
+.preview .hl { background: #fff3cd; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+th { background: #f0f0f0; font-weight: 600; position: sticky; top: 0; }
+td input { width: 100%; border: none; padding: 4px; font-size: 13px; }
+td input:focus { outline: none; background: #eef6ff; }
+td input.empty { background: #fff0f0; }
+td .del-btn { cursor:pointer;color:#d32f2f;font-weight:bold;padding:2px 6px;border:none;background:none;font-size:15px;line-height:1; }
+.actions { margin-bottom: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 6px 14px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px; }
+.btn:hover { background: #f0f0f0; }
+.btn-primary { background: #4a9eff; color: #fff; border-color: #4a9eff; }
+.btn-primary:hover { background: #3a8eef; }
+.btn-danger { color: #d32f2f; }
+.status { margin-top: 8px; padding: 8px 12px; border-radius: 4px; font-size: 13px; display: none; }
+.status.show { display: block; }
+.status-ok { background: #e8f5e9; color: #2e7d32; }
+.status-err { background: #ffebee; color: #c62828; }
+.toolbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.toolbar .btn { font-size: 12px; padding: 4px 10px; }
+.var-badge { display: inline-block; background: #e3f2fd; color: #1565c0; padding: 2px 8px; border-radius: 3px; font-family: monospace; font-size: 12px; margin: 2px; }
+.hint-text { font-size:12px; color:#888; margin-bottom:8px; }
+.toolbar-row { display:flex; gap:6px; align-items:center; margin-bottom:8px; flex-wrap:wrap; }
+.preview-label { font-size:13px; color:#666; }
+.empty-warning { display:none; font-size:12px; color:#d32f2f; margin-left:8px; }
+.hidden { display:none; }
+.table-wrap { overflow-x:auto; max-height:500px; overflow-y:auto; }
+.proj-input { flex:1; min-width:100px; padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; }
+.proj-list { width:100%; border:1px solid #ccc; border-radius:4px; font-size:13px; }
+.proj-list-wrap { margin-top:8px; }
+.del-th { width:32px; }
+.hl-filled { color:#e65100; font-weight:bold; }
+.hl-empty { color:#999; font-weight:bold; }
+.ml { margin-left:16px; }
+.ml-ul { margin:4px 0 0 20px; }
+</style>
+
+<h1>テンプレートメール作成ツール <a class="help-toggle" onclick="toggleHelp()">[?] 使い方</a></h1>
+
+<div id="help">
+  <dl>
+    <dt><span class="tag">基本</span> テンプレート</dt>
+    <dd>左のテキストエリアに本文のテンプレートを書きます。<code>{名前}</code> のように <code>{ }</code> で囲んだ部分が変数になり、データテーブルの列として自動追加されます。変数名は日本語・英数字どちらでもOKです。</dd>
+
+    <dt><span class="tag">基本</span> データ入力</dt>
+    <dd>テーブルの各列がテンプレートの変数に対応します。1行＝1通のメールです。「+ 行を追加」で行を増やし、「×」で削除します。</dd>
+
+    <dt><span class="tag">基本</span> プレビュー</dt>
+    <dd>◀ ▶ ボタンで各行の置換結果を確認できます。<span class="hl-filled">オレンジ色</span>の部分が変数から置き換わった箇所です。<span class="hl-empty">グレー</span>は値が未入力の変数です。</dd>
+
+    <dt><span class="tag">基本</span> プロジェクト保存</dt>
+    <dd>テンプレートとデータは「プロジェクト」としてブラウザに保存できます。画面を閉じてもデータは残ります。保存したプロジェクトは一覧から選択して読み込めます。</dd>
+
+    <dt><span class="tag">CSV</span> CSV出力</dt>
+    <dd>現在のデータテーブルをCSVファイルとしてダウンロードします。Excelで開いて編集できます。</dd>
+
+    <dt><span class="tag">CSV</span> CSV読込</dt>
+    <dd>
+      CSVファイルを読み込んでテーブルに反映します。<br>
+      <strong>CSVの作成ルール：</strong>
+      <ul class="ml-ul">
+        <li>1行目に見出し行（ヘッダー）を書きます。見出しはテンプレートの変数名と合わせてください。（例: <code>名前,日時,科目</code>）</li>
+        <li>2行目以降がデータです。（例: <code>山田,6/10 14:00,数学</code>）</li>
+        <li>値にカンマや改行を含む場合は <code>"..."</code> ダブルクオーテーションで囲みます。</li>
+        <li>文字コードはUTF-8を推奨します。Excelで保存する場合は「CSV UTF-8」形式を選んでください。</li>
+      </ul>
+      <strong>Excel→CSVの手順：</strong>
+      <ol class="ml-ul">
+        <li>Excelの1行目に変数名（<code>名前</code>, <code>日時</code> など）を入力</li>
+        <li>2行目以降にデータを入力</li>
+        <li>[ファイル] → [名前を付けて保存] → [CSV UTF-8 (カンマ区切り) (.csv)] で保存</li>
+        <li>このツールの「CSV読込」でそのファイルを選択</li>
+      </ol>
+    </dd>
+
+    <dt><span class="tag">CSV</span> よくあるミス</dt>
+    <dd>
+      <ul class="ml-ul">
+        <li>ヘッダー名がテンプレートの <code>{ }</code> 内の名前と一致しないと列が空になります</li>
+        <li>Excelで「CSV (カンマ区切り)」を選ぶと文字化けするので「CSV UTF-8」を選んでください</li>
+        <li>余計な空行が入ると空データの行が作成されます</li>
+      </ul>
+    </dd>
+
+    <dt><span class="tag">出力</span> 一括出力</dt>
+    <dd>
+      <ul class="ml-ul">
+        <li><strong>すべてコピー</strong> — 全行の置換結果をまとめてクリップボードにコピー</li>
+        <li><strong>テキスト一括DL</strong> — 全行をテキストファイルとしてダウンロード</li>
+        <li><strong>mbox形式DL</strong> — メールクライアントで読み込めるmbox形式で出力</li>
+      </ul>
+    </dd>
+  </dl>
+</div>
+
+<div class="container">
+  <div class="left">
+    <section>
+      <h2>テンプレート</h2>
+      <p class="hint-text">テンプレート内に <code>{変数名}</code> を書くと自動で列が追加されます</p>
+      <textarea id="template" placeholder="例：{名前}さん、{日時}の件"></textarea>
+    </section>
+
+    <section>
+      <h2>プレビュー</h2>
+      <div class="toolbar-row">
+        <button class="btn" onclick="prevPreview()">◀</button>
+        <span class="preview-label" id="previewLabel">- 行1</span>
+        <button class="btn" onclick="nextPreview()">▶</button>
+        <span id="emptyWarning" class="empty-warning">⚠ 未入力あり</span>
+      </div>
+      <div class="preview" id="preview"></div>
+    </section>
+  </div>
+
+  <div class="right">
+    <section>
+      <h2>データ</h2>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="addRow()">+ 行を追加</button>
+        <button class="btn" onclick="exportCSV()">CSV出力</button>
+        <button class="btn" onclick="document.getElementById('csvFile').click()">CSV読込</button>
+        <input type="file" id="csvFile" accept=".csv" class="hidden" onchange="importCSV(event)">
+        <button class="btn btn-danger" onclick="clearAll()">クリア</button>
+      </div>
+      <div class="table-wrap">
+        <table id="datatable">
+          <thead><tr id="headerrow"></tr></thead>
+          <tbody id="datarows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>プロジェクト</h2>
+      <div class="toolbar-row">
+        <input type="text" id="projectName" placeholder="プロジェクト名" class="proj-input">
+        <button class="btn btn-primary" onclick="saveProject()">保存</button>
+        <button class="btn" onclick="loadProject()">読込</button>
+        <button class="btn btn-danger" onclick="deleteProject()">削除</button>
+      </div>
+      <div class="proj-list-wrap">
+        <select id="projectList" size="5" class="proj-list" ondblclick="loadProject()"></select>
+      </div>
+    </section>
+
+    <section>
+      <h2>一括出力</h2>
+      <div class="actions">
+        <button class="btn" onclick="copyAll()">すべてコピー</button>
+        <button class="btn" onclick="downloadAll()">テキスト一括DL</button>
+        <button class="btn" onclick="downloadMbox()">mbox形式でDL</button>
+      </div>
+      <div id="status" class="status"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const DEFAULT_TEMPLATE = '{名前}さん\n\nお世話になっております。\n{日時}の打ち合わせについてご連絡いたします。\n\nよろしくお願いいたします。';
+
+function init() {
+  document.getElementById('template').value = DEFAULT_TEMPLATE;
+  updateTable();
+  renderPreview();
+  document.getElementById('template').addEventListener('input', onTemplateInput);
+  refreshProjectList();
+}
+
+function saveProject() {
+  const name = document.getElementById('projectName').value.trim();
+  if (!name) { showStatus('プロジェクト名を入力してください', false); return; }
+  const data = { template: document.getElementById('template').value, rows: getData() };
+  try {
+    localStorage.setItem('tmpl_project_' + name, JSON.stringify(data));
+    refreshProjectList();
+    showStatus('保存しました: ' + name, true);
+  } catch(e) { showStatus('保存に失敗しました', false); }
+}
+
+function loadProject() {
+  const sel = document.getElementById('projectList');
+  const name = sel.value || document.getElementById('projectName').value.trim();
+  if (!name) { showStatus('プロジェクトを選択してください', false); return; }
+  const raw = localStorage.getItem('tmpl_project_' + name);
+  if (!raw) { showStatus('プロジェクトが見つかりません', false); return; }
+  const data = JSON.parse(raw);
+  document.getElementById('template').value = data.template;
+  const tbody = document.getElementById('datarows');
+  tbody.innerHTML = '';
+  data.rows.forEach(row => {
+    const tr = document.createElement('tr');
+    const delTd = document.createElement('td');
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '×';
+    delBtn.className = 'del-btn';
+    delBtn.onclick = function() { tr.remove(); renderPreview(); };
+    delTd.appendChild(delBtn);
+    tr.appendChild(delTd);
+    for (const [k, v] of Object.entries(row)) {
+      const td = document.createElement('td');
+      const inp = document.createElement('input');
+      inp.value = v;
+      inp.addEventListener('input', renderPreview);
+      td.appendChild(inp);
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  });
+  document.getElementById('projectName').value = name;
+  lastVars = '[]';
+  onTemplateInput();
+  showStatus('読み込みました: ' + name, true);
+}
+
+function deleteProject() {
+  const name = document.getElementById('projectList').value || document.getElementById('projectName').value.trim();
+  if (!name) { showStatus('プロジェクトを選択してください', false); return; }
+  if (!confirm('プロジェクト「' + name + '」を削除しますか？')) return;
+  localStorage.removeItem('tmpl_project_' + name);
+  refreshProjectList();
+  showStatus('削除しました: ' + name, true);
+}
+
+function refreshProjectList() {
+  const sel = document.getElementById('projectList');
+  const names = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key.startsWith('tmpl_project_')) names.push(key.slice(13));
+  }
+  names.sort();
+  sel.innerHTML = '';
+  names.forEach(n => {
+    const opt = document.createElement('option');
+    opt.textContent = n;
+    sel.appendChild(opt);
+  });
+}
+
+function deleteAllProjects() {
+  if (!confirm('すべてのプロジェクトを削除しますか？')) return;
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key.startsWith('tmpl_project_')) localStorage.removeItem(key);
+  }
+  refreshProjectList();
+}
+
+let lastVars = '[]';
+let previewIdx = 0;
+function onTemplateInput() {
+  const vars = JSON.stringify(extractVars());
+  if (vars !== lastVars) { lastVars = vars; updateTable(); }
+  renderPreview();
+}
+
+function extractVars() {
+  const m = document.getElementById('template').value.match(/\{([^}]+)\}/g);
+  return [...new Set(m || [])].map(s => s.slice(1, -1));
+}
+
+function updateTable() {
+  const vars = extractVars();
+  const thead = document.querySelector('#datatable thead tr');
+  thead.innerHTML = '<th class="del-th"> </th>' + vars.map(v => `<th>${v}</th>`).join('');
+  const tbody = document.getElementById('datarows');
+  [...tbody.children].forEach(tr => {
+    while (tr.children.length < vars.length + 1) {
+      const td = document.createElement('td');
+      td.appendChild(document.createElement('input'));
+      td.firstChild.addEventListener('input', renderPreview);
+      tr.appendChild(td);
+    }
+    while (tr.children.length > vars.length + 1) tr.removeChild(tr.lastElementChild);
+  });
+  if (!tbody.children.length) addRow();
+}
+
+function addRow() {
+  const vars = extractVars();
+  const tr = document.createElement('tr');
+  const delTd = document.createElement('td');
+  const delBtn = document.createElement('button');
+  delBtn.textContent = '×';
+  delBtn.className = 'del-btn';
+  delBtn.onclick = function() { tr.remove(); renderPreview(); };
+  delTd.appendChild(delBtn);
+  tr.appendChild(delTd);
+  vars.forEach(() => {
+    const td = document.createElement('td');
+    const inp = document.createElement('input');
+    inp.addEventListener('input', renderPreview);
+    td.appendChild(inp);
+    tr.appendChild(td);
+  });
+  document.getElementById('datarows').appendChild(tr);
+  renderPreview();
+}
+
+function getData() {
+  const vars = extractVars();
+  return [...document.querySelectorAll('#datarows tr')].map(tr => {
+    const row = {};
+    [...tr.querySelectorAll('input')].forEach((inp, i) => { if (i < vars.length) row[vars[i]] = inp.value; });
+    return row;
+  });
+}
+
+function renderPreview() {
+  const tmpl = document.getElementById('template').value;
+  const data = getData();
+  const el = document.getElementById('preview');
+  const label = document.getElementById('previewLabel');
+  const warn = document.getElementById('emptyWarning');
+  if (!data.length) { el.textContent = tmpl; label.textContent = 'データなし'; warn.style.display = 'none'; return; }
+  if (previewIdx >= data.length) previewIdx = 0;
+  if (previewIdx < 0) previewIdx = data.length - 1;
+  const row = data[previewIdx];
+  let r = tmpl.replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]);
+  let hasEmpty = false;
+  Object.entries(row).forEach(([k, v]) => {
+    if (!v) hasEmpty = true;
+    const val = (v || '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'})[c]);
+    r = r.replaceAll('{' + k + '}', '<span class="' + (v ? 'hl-filled' : 'hl-empty') + '">' + (val || '{' + k + '}') + '</span>');
+  });
+  el.innerHTML = r.replace(/\n/g,'<br>');
+  label.textContent = `${previewIdx+1} / ${data.length}`;
+  warn.style.display = hasEmpty ? 'inline' : 'none';
+  validateAll();
+}
+
+function validateAll() {
+  const vars = extractVars();
+  document.querySelectorAll('#datarows tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    inputs.forEach((inp, i) => {
+      if (i < vars.length) inp.classList.toggle('empty', !inp.value);
+    });
+  });
+}
+
+function prevPreview() { previewIdx--; renderPreview(); }
+function nextPreview() { previewIdx++; renderPreview(); }
+
+function showStatus(msg, ok) {
+  const s = document.getElementById('status');
+  s.textContent = msg;
+  s.className = 'status show ' + (ok ? 'status-ok' : 'status-err');
+  setTimeout(() => s.classList.remove('show'), 3000);
+}
+
+function copyAll() {
+  const tmpl = document.getElementById('template').value;
+  const txt = getData().map((row, i) => {
+    let t = tmpl;
+    Object.entries(row).forEach(([k, v]) => { t = t.replaceAll('{' + k + '}', v); });
+    return `--- ${i+1} ---\n${t}`;
+  }).join('\n\n');
+  navigator.clipboard.writeText(txt).then(() => showStatus('コピーしました', true), () => showStatus('コピー失敗', false));
+}
+
+function downloadAll() {
+  const tmpl = document.getElementById('template').value;
+  const txt = getData().map((row, i) => {
+    let t = tmpl;
+    Object.entries(row).forEach(([k, v]) => { t = t.replaceAll('{' + k + '}', v); });
+    return `--- ${i+1} ---\n${t}`;
+  }).join('\n\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type:'text/plain'}));
+  a.download = 'output.txt';
+  a.click();
+  showStatus('ダウンロードしました', true);
+}
+
+function downloadMbox() {
+  const tmpl = document.getElementById('template').value;
+  const now = new Date().toUTCString();
+  const txt = getData().map(row => {
+    let body = tmpl;
+    Object.entries(row).forEach(([k, v]) => { body = body.replaceAll('{' + k + '}', v); });
+    const to = row['連絡先'] || row['先生名'] || '';
+    return `From ${to} ${now}\nTo: ${to}\nSubject: ${row['件名'] || '欠席のご連絡'}\nDate: ${now}\nContent-Type: text/plain; charset=UTF-8\n\n${body}`;
+  }).join('\n\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt], {type:'application/mbox'}));
+  a.download = 'output.mbox';
+  a.click();
+  showStatus('mboxをダウンロードしました', true);
+}
+
+function exportCSV() {
+  const vars = extractVars();
+  const esc = s => '"' + String(s).replace(/"/g, '""') + '"';
+  let csv = vars.map(esc).join(',') + '\n';
+  getData().forEach(row => { csv += vars.map(v => esc(row[v] || '')).join(',') + '\n'; });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['\uFEFF' + csv], {type:'text/csv'}));
+  a.download = 'data.csv';
+  a.click();
+  showStatus('CSVを出力しました', true);
+}
+
+function importCSV(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    const lines = ev.target.result.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) { showStatus('データがありません', false); return; }
+    const header = parseCSVLine(lines[0]);
+    const tbody = document.getElementById('datarows');
+    tbody.innerHTML = '';
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseCSVLine(lines[i]);
+      const tr = document.createElement('tr');
+      const delTd = document.createElement('td');
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '×';
+      delBtn.className = 'del-btn';
+      delBtn.onclick = function() { tr.remove(); renderPreview(); };
+      delTd.appendChild(delBtn);
+      tr.appendChild(delTd);
+      header.forEach((h, hi) => {
+        const td = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.value = vals[hi] || '';
+        inp.addEventListener('input', renderPreview);
+        td.appendChild(inp);
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    }
+    showStatus('CSVを読み込みました', true);
+    updateTable();
+    renderPreview();
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function parseCSVLine(line) {
+  const r = []; let c = ''; let q = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (q) { if (ch === '"') { if (line[i+1] === '"') { c += '"'; i++; } else q = false; } else c += ch; }
+    else { if (ch === '"') q = true; else if (ch === ',') { r.push(c); c = ''; } else c += ch; }
+  }
+  r.push(c);
+  return r;
+}
+
+function toggleHelp() {
+  const h = document.getElementById('help');
+  h.style.display = h.style.display === 'block' ? 'none' : 'block';
+}
+
+init();
+</script>
+</html>
